@@ -1,0 +1,1109 @@
+<!doctype html>
+<html lang="en" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Warehouse Workflow Manager</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="/_sdk/element_sdk.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet">
+  <style>
+    * { font-family: 'Space Grotesk', sans-serif; }
+    .tab-active { background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%); color: white; }
+    .card-shadow { box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+    .status-picking { background: #fef3c7; color: #92400e; }
+    .status-checking { background: #dbeafe; color: #1e40af; }
+    .status-packing { background: #e0e7ff; color: #3730a3; }
+    .status-delivery { background: #d1fae5; color: #065f46; }
+    .status-delivered { background: #10b981; color: white; }
+    .pulse-dot { animation: pulse 2s infinite; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    .gradient-header { background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #2d5a87 100%); }
+  </style>
+  <style>body { box-sizing: border-box; }</style>
+  <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
+ </head>
+ <body class="h-full bg-slate-100 overflow-auto">
+  <div id="app" class="h-full w-full flex flex-col"><!-- Header -->
+   <header class="gradient-header text-white p-4 shadow-lg">
+    <div class="max-w-7xl mx-auto flex items-center justify-between">
+     <div>
+      <h1 id="app-title" class="text-2xl font-bold">📦 Warehouse Workflow Manager</h1>
+      <p id="company-name" class="text-slate-300 text-sm">Streamline your warehouse operations</p>
+     </div>
+     <div class="flex items-center gap-2 text-sm"><span class="pulse-dot w-2 h-2 bg-green-400 rounded-full"></span> <span>System Active</span>
+     </div>
+    </div>
+   </header><!-- Navigation Tabs -->
+   <nav class="bg-white border-b border-slate-200 shadow-sm">
+    <div class="max-w-7xl mx-auto flex gap-1 p-2"><button onclick="switchTab('orders')" id="tab-orders" class="tab-active px-4 py-2 rounded-lg font-medium transition-all"> 📋 Orders </button> <button onclick="switchTab('employees')" id="tab-employees" class="px-4 py-2 rounded-lg font-medium text-slate-600 hover:bg-slate-100 transition-all"> 👥 Employees </button> <button onclick="switchTab('analytics')" id="tab-analytics" class="px-4 py-2 rounded-lg font-medium text-slate-600 hover:bg-slate-100 transition-all"> 📊 Analytics </button> <button onclick="switchTab('employee-metrics')" id="tab-employee-metrics" class="px-4 py-2 rounded-lg font-medium text-slate-600 hover:bg-slate-100 transition-all"> 📈 Employee Metrics </button>
+    </div>
+   </nav><!-- Main Content -->
+   <main class="flex-1 overflow-auto p-4">
+    <div class="max-w-7xl mx-auto"><!-- Orders Tab -->
+     <div id="content-orders" class="space-y-4"><!-- New Order Form -->
+      <div class="bg-white rounded-xl p-6 card-shadow">
+       <h2 class="text-lg font-semibold text-slate-800 mb-4">➕ Create New Order</h2>
+       <form id="order-form" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div><label for="invoice-number" class="block text-sm font-medium text-slate-600 mb-1">Invoice Number</label> <input type="text" id="invoice-number" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="INV-001">
+        </div>
+        <div><label for="party-name" class="block text-sm font-medium text-slate-600 mb-1">Party Name</label> <input type="text" id="party-name" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Customer name">
+        </div>
+        <div><label for="item-count" class="block text-sm font-medium text-slate-600 mb-1">Number of Items</label> <input type="number" id="item-count" required min="1" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0">
+        </div>
+        <div class="flex items-end gap-2"><button type="submit" id="auto-assign-btn" class="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-2 rounded-lg font-medium hover:from-blue-700 hover:to-blue-800 transition-all"> Auto Assign </button> <button type="button" id="manual-assign-btn" onclick="showManualAssign()" class="flex-1 bg-slate-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-slate-700 transition-all"> Manual </button>
+        </div>
+       </form><!-- Manual Assignment Panel -->
+       <div id="manual-assign-panel" class="hidden mt-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
+        <h3 class="font-medium text-slate-700 mb-3">Select Picker Manually</h3>
+        <div id="picker-selection" class="grid grid-cols-2 md:grid-cols-4 gap-2"></div><button onclick="submitManualOrder()" class="mt-3 bg-green-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-green-700"> Assign Selected Picker </button>
+       </div>
+      </div><!-- Active Orders -->
+      <div class="bg-white rounded-xl p-6 card-shadow">
+       <h2 class="text-lg font-semibold text-slate-800 mb-4">📦 Active Orders</h2>
+       <div id="orders-list" class="space-y-3">
+        <p class="text-slate-500 text-center py-8">No active orders. Create one above!</p>
+       </div>
+      </div>
+     </div><!-- Employees Tab -->
+     <div id="content-employees" class="hidden space-y-4"><!-- Add Employee Form -->
+      <div class="bg-white rounded-xl p-6 card-shadow">
+       <h2 class="text-lg font-semibold text-slate-800 mb-4">➕ Add New Employee</h2>
+       <form id="employee-form" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div><label for="emp-name" class="block text-sm font-medium text-slate-600 mb-1">Employee Name</label> <input type="text" id="emp-name" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Full name">
+        </div>
+        <div><label for="emp-role" class="block text-sm font-medium text-slate-600 mb-1">Role</label> <select id="emp-role" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"> <option value="picker">Picker</option> <option value="checker">Checker/Packer</option> <option value="delivery">Delivery</option> </select>
+        </div>
+        <div><label for="emp-level" class="block text-sm font-medium text-slate-600 mb-1">Experience Level</label> <select id="emp-level" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"> <option value="junior">Junior (1-10 items)</option> <option value="intermediate">Intermediate (11-20 items)</option> <option value="senior">Senior (21-35 items)</option> <option value="expert">Expert (35+ items)</option> </select>
+        </div>
+        <div class="flex items-end"><button type="submit" class="w-full bg-gradient-to-r from-green-600 to-green-700 text-white px-4 py-2 rounded-lg font-medium hover:from-green-700 hover:to-green-800 transition-all"> Add Employee </button>
+        </div>
+       </form>
+      </div><!-- Employee List -->
+      <div class="bg-white rounded-xl p-6 card-shadow">
+       <h2 class="text-lg font-semibold text-slate-800 mb-4">👥 Employee Directory</h2>
+       <div id="employees-list" class="space-y-3">
+        <p class="text-slate-500 text-center py-8">No employees added yet.</p>
+       </div>
+      </div>
+     </div><!-- Analytics Tab -->
+     <div id="content-analytics" class="hidden space-y-4"><!-- Stats Cards -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+       <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-4 text-white card-shadow">
+        <p class="text-blue-100 text-sm">Total Orders</p>
+        <p id="stat-total" class="text-3xl font-bold">0</p>
+       </div>
+       <div class="bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl p-4 text-white card-shadow">
+        <p class="text-amber-100 text-sm">In Progress</p>
+        <p id="stat-progress" class="text-3xl font-bold">0</p>
+       </div>
+       <div class="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-4 text-white card-shadow">
+        <p class="text-green-100 text-sm">Delivered</p>
+        <p id="stat-delivered" class="text-3xl font-bold">0</p>
+       </div>
+       <div class="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-4 text-white card-shadow">
+        <p class="text-purple-100 text-sm">Active Employees</p>
+        <p id="stat-employees" class="text-3xl font-bold">0</p>
+       </div>
+      </div><!-- Charts Section -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+       <div class="bg-white rounded-xl p-6 card-shadow">
+        <h3 class="font-semibold text-slate-800 mb-4">📈 Orders by Status</h3>
+        <div id="status-chart" class="space-y-3"></div>
+       </div>
+       <div class="bg-white rounded-xl p-6 card-shadow">
+        <h3 class="font-semibold text-slate-800 mb-4">🏆 Top Performers</h3>
+        <div id="performers-list" class="space-y-2"></div>
+       </div>
+      </div><!-- Employee Workload -->
+      <div class="bg-white rounded-xl p-6 card-shadow">
+       <h3 class="font-semibold text-slate-800 mb-4">📊 Employee Workload Distribution</h3>
+       <div id="workload-chart" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
+      </div>
+     </div><!-- Employee Metrics Tab -->
+     <div id="content-employee-metrics" class="hidden space-y-4"><!-- Filters and Controls -->
+      <div class="bg-white rounded-xl p-4 card-shadow flex flex-wrap gap-3 items-center">
+       <div><label for="metric-role-filter" class="text-sm font-medium text-slate-600">Filter by Role:</label> <select id="metric-role-filter" onchange="updateMetricsDashboard()" class="mt-1 px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"> <option value="">All Roles</option> <option value="picker">Pickers</option> <option value="checker">Checkers/Packers</option> <option value="delivery">Delivery</option> </select>
+       </div>
+       <div><label for="metric-time-filter" class="text-sm font-medium text-slate-600">Time Period:</label> <select id="metric-time-filter" onchange="updateMetricsDashboard()" class="mt-1 px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"> <option value="today">Today</option> <option value="week">This Week</option> <option value="month">This Month</option> <option value="all">All Time</option> </select>
+       </div><button onclick="exportMetrics()" class="ml-auto bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 font-medium">📥 Export Report</button>
+      </div><!-- Employee Performance Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="employee-cards-container">
+       <p class="text-slate-500 col-span-3 text-center py-8">Load employees to view metrics</p>
+      </div><!-- Performance Comparison Chart -->
+      <div class="bg-white rounded-xl p-6 card-shadow">
+       <h2 class="text-lg font-semibold text-slate-800 mb-4">📊 Performance Comparison</h2>
+       <div id="comparison-chart" class="space-y-4"></div>
+      </div><!-- Efficiency Metrics -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+       <div class="bg-white rounded-xl p-6 card-shadow">
+        <h3 class="font-semibold text-slate-800 mb-4">⚡ Efficiency Scores</h3>
+        <div id="efficiency-list" class="space-y-3"></div>
+       </div>
+       <div class="bg-white rounded-xl p-6 card-shadow">
+        <h3 class="font-semibold text-slate-800 mb-4">📉 Workload Balance</h3>
+        <div id="workload-balance" class="space-y-3"></div>
+       </div>
+      </div><!-- Detailed Metrics Table -->
+      <div class="bg-white rounded-xl p-6 card-shadow">
+       <h3 class="font-semibold text-slate-800 mb-4">📋 Detailed Employee Metrics</h3>
+       <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+         <thead class="bg-slate-50 border-b border-slate-200">
+          <tr>
+           <th class="px-4 py-3 text-left font-semibold text-slate-700">Employee</th>
+           <th class="px-4 py-3 text-left font-semibold text-slate-700">Role</th>
+           <th class="px-4 py-3 text-center font-semibold text-slate-700">Tasks</th>
+           <th class="px-4 py-3 text-center font-semibold text-slate-700">Completed</th>
+           <th class="px-4 py-3 text-center font-semibold text-slate-700">Success %</th>
+           <th class="px-4 py-3 text-center font-semibold text-slate-700">Avg Items/Task</th>
+           <th class="px-4 py-3 text-center font-semibold text-slate-700">Status</th>
+          </tr>
+         </thead>
+         <tbody id="metrics-table-body"></tbody>
+        </table>
+       </div>
+      </div><!-- Trends Chart -->
+      <div class="bg-white rounded-xl p-6 card-shadow">
+       <h3 class="font-semibold text-slate-800 mb-4">📈 Daily Trend (Last 7 Days)</h3>
+       <div id="trend-chart" class="space-y-3"></div>
+      </div>
+     </div>
+    </div>
+   </main><!-- Toast Notification -->
+   <div id="toast" class="fixed bottom-4 right-4 bg-slate-800 text-white px-6 py-3 rounded-lg shadow-lg transform translate-y-20 opacity-0 transition-all duration-300"><span id="toast-message"></span>
+   </div><!-- Delete Confirmation Modal -->
+   <div id="delete-modal" class="fixed inset-0 bg-black/50 flex items-center justify-center hidden z-50">
+    <div class="bg-white rounded-xl p-6 max-w-sm w-full mx-4 card-shadow">
+     <h3 class="text-lg font-semibold text-slate-800 mb-2">Confirm Delete</h3>
+     <p id="delete-message" class="text-slate-600 mb-4">Are you sure you want to delete this item?</p>
+     <div class="flex gap-3"><button onclick="hideDeleteModal()" class="flex-1 px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50">Cancel</button> <button id="confirm-delete-btn" class="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">Delete</button>
+     </div>
+    </div>
+   </div>
+  </div>
+  <script>
+    // Global state
+    let allData = [];
+    let selectedPickerId = null;
+    let pendingDelete = null;
+    const STORAGE_KEY = 'warehouse_data';
+    const DATA_VERSION = '1.0';
+
+    const defaultConfig = {
+      app_title: '📦 Warehouse Workflow Manager',
+      company_name: 'Streamline your warehouse operations',
+      primary_color: '#1e3a5f',
+      secondary_color: '#ffffff',
+      text_color: '#0f172a',
+      accent_color: '#2563eb',
+      surface_color: '#f1f5f9'
+    };
+
+    // Helper functions
+    function saveData() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        version: DATA_VERSION,
+        timestamp: new Date().toISOString(),
+        data: allData
+      }));
+    }
+
+    function loadData() {
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed.version === DATA_VERSION) {
+            allData = parsed.data || [];
+            return;
+          }
+        }
+      } catch (e) {
+        console.error('Failed to load data:', e);
+      }
+      allData = [];
+    }
+
+    function addBackendId() {
+      return 'id_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    }
+
+    function getOrders() {
+      return allData.filter(d => d.type === 'order');
+    }
+
+    function getEmployees() {
+      return allData.filter(d => d.type === 'employee');
+    }
+
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      const toastMessage = document.getElementById('toast-message');
+      toastMessage.textContent = message;
+      toast.classList.remove('translate-y-20', 'opacity-0');
+      setTimeout(() => {
+        toast.classList.add('translate-y-20', 'opacity-0');
+      }, 3000);
+    }
+
+    function showDeleteModal(message, onConfirm) {
+      document.getElementById('delete-message').textContent = message;
+      document.getElementById('delete-modal').classList.remove('hidden');
+      pendingDelete = onConfirm;
+      document.getElementById('confirm-delete-btn').onclick = async () => {
+        if (pendingDelete) await pendingDelete();
+        hideDeleteModal();
+      };
+    }
+
+    function hideDeleteModal() {
+      document.getElementById('delete-modal').classList.add('hidden');
+      pendingDelete = null;
+    }
+
+    // Tab switching
+    function switchTab(tab) {
+      ['orders', 'employees', 'analytics', 'employee-metrics'].forEach(t => {
+        document.getElementById(`content-${t}`).classList.add('hidden');
+        document.getElementById(`tab-${t}`).classList.remove('tab-active');
+        document.getElementById(`tab-${t}`).classList.add('text-slate-600', 'hover:bg-slate-100');
+      });
+      document.getElementById(`content-${tab}`).classList.remove('hidden');
+      document.getElementById(`tab-${tab}`).classList.add('tab-active');
+      document.getElementById(`tab-${tab}`).classList.remove('text-slate-600', 'hover:bg-slate-100');
+      
+      if (tab === 'analytics') updateAnalytics();
+      if (tab === 'employee-metrics') updateMetricsDashboard();
+    }
+
+    // Employee assignment logic
+    function getLevelForItemCount(count) {
+      if (count <= 10) return 'junior';
+      if (count <= 20) return 'intermediate';
+      if (count <= 35) return 'senior';
+      return 'expert';
+    }
+
+    function getLevelPriority(level) {
+      const priorities = { junior: 1, intermediate: 2, senior: 3, expert: 4 };
+      return priorities[level] || 0;
+    }
+
+    function findAvailablePicker(itemCount) {
+      const requiredLevel = getLevelForItemCount(itemCount);
+      const requiredPriority = getLevelPriority(requiredLevel);
+      
+      const availablePickers = getEmployees().filter(e => 
+        e.employee_role === 'picker' && 
+        e.employee_available && 
+        e.employee_present
+      );
+
+      // Sort by level priority (prefer exact match, then higher levels)
+      availablePickers.sort((a, b) => {
+        const aPriority = getLevelPriority(a.employee_level);
+        const bPriority = getLevelPriority(b.employee_level);
+        const aDiff = Math.abs(aPriority - requiredPriority);
+        const bDiff = Math.abs(bPriority - requiredPriority);
+        if (aDiff !== bDiff) return aDiff - bDiff;
+        return bPriority - aPriority; // Prefer higher level if same difference
+      });
+
+      return availablePickers.find(p => getLevelPriority(p.employee_level) >= requiredPriority) || availablePickers[0];
+    }
+
+    function findAvailableChecker(excludeId) {
+      return getEmployees().find(e => 
+        e.employee_role === 'checker' && 
+        e.employee_available && 
+        e.employee_present &&
+        e.__backendId !== excludeId
+      );
+    }
+
+    // Order management
+    async function createOrder(invoiceNumber, partyName, itemCount, picker) {
+      if (getOrders().length >= 500) {
+        showToast('Order limit reached (500). Please complete existing orders.');
+        return;
+      }
+
+      const order = {
+        type: 'order',
+        __backendId: addBackendId(),
+        invoice_number: invoiceNumber,
+        party_name: partyName,
+        item_count: itemCount,
+        status: 'picking',
+        picker_id: picker.__backendId,
+        picker_name: picker.employee_name,
+        checker_id: '',
+        checker_name: '',
+        packer_id: '',
+        packer_name: '',
+        delivery_status: '',
+        created_at: new Date().toISOString(),
+        completed_at: ''
+      };
+
+      allData.push(order);
+      saveData();
+      renderOrders();
+      showToast(`Order ${invoiceNumber} assigned to ${picker.employee_name} for picking`);
+    }
+
+    async function updateOrderStatus(order, newStatus) {
+      const orderIndex = allData.findIndex(d => d.__backendId === order.__backendId);
+      if (orderIndex === -1) return;
+
+      const updates = { ...order, status: newStatus };
+
+      if (newStatus === 'checking') {
+        const checker = findAvailableChecker(order.picker_id);
+        if (!checker) {
+          showToast('No available checker found!');
+          return;
+        }
+        updates.checker_id = checker.__backendId;
+        updates.checker_name = checker.employee_name;
+      } else if (newStatus === 'packing') {
+        updates.packer_id = order.checker_id;
+        updates.packer_name = order.checker_name;
+      } else if (newStatus === 'delivery') {
+        updates.delivery_status = 'pending';
+      } else if (newStatus === 'delivered') {
+        updates.delivery_status = 'delivered';
+        updates.completed_at = new Date().toISOString();
+      }
+
+      allData[orderIndex] = updates;
+      saveData();
+      renderOrders();
+      updateAnalytics();
+      showToast(`Order ${order.invoice_number} updated to ${newStatus}`);
+    }
+
+    // Employee management
+    async function addEmployee(name, role, level) {
+      if (getEmployees().length >= 499) {
+        showToast('Employee limit reached (499).');
+        return;
+      }
+
+      const employee = {
+        type: 'employee',
+        __backendId: addBackendId(),
+        employee_name: name,
+        employee_role: role,
+        employee_level: level,
+        employee_available: true,
+        employee_present: true
+      };
+
+      allData.push(employee);
+      saveData();
+      renderEmployees();
+      showToast(`Employee ${name} added successfully`);
+    }
+
+    async function toggleEmployeeStatus(employee, field) {
+      const index = allData.findIndex(d => d.__backendId === employee.__backendId);
+      if (index !== -1) {
+        allData[index][field] = !employee[field];
+        saveData();
+        renderEmployees();
+        updateAnalytics();
+      }
+    }
+
+    async function deleteEmployee(employee) {
+      const index = allData.findIndex(d => d.__backendId === employee.__backendId);
+      if (index !== -1) {
+        allData.splice(index, 1);
+        saveData();
+        renderEmployees();
+        updateAnalytics();
+        showToast(`Employee ${employee.employee_name} removed`);
+      }
+    }
+
+    // Manual assignment
+    function showManualAssign() {
+      const panel = document.getElementById('manual-assign-panel');
+      panel.classList.toggle('hidden');
+      if (!panel.classList.contains('hidden')) {
+        renderPickerSelection();
+      }
+    }
+
+    function renderPickerSelection() {
+      const container = document.getElementById('picker-selection');
+      const pickers = getEmployees().filter(e => e.employee_role === 'picker' && e.employee_present);
+      
+      if (pickers.length === 0) {
+        container.innerHTML = '<p class="col-span-4 text-slate-500">No pickers available. Add employees first.</p>';
+        return;
+      }
+
+      container.innerHTML = pickers.map(p => `
+        <button type="button" onclick="selectPicker('${p.__backendId}')" 
+          id="picker-btn-${p.__backendId}"
+          class="p-3 border-2 rounded-lg text-left transition-all ${p.employee_available ? 'border-slate-200 hover:border-blue-400' : 'border-red-200 bg-red-50 opacity-60'}">
+          <p class="font-medium text-sm">${p.employee_name}</p>
+          <p class="text-xs text-slate-500 capitalize">${p.employee_level} • ${p.employee_available ? '✅ Available' : '🔴 Busy'}</p>
+        </button>
+      `).join('');
+    }
+
+    function selectPicker(id) {
+      document.querySelectorAll('[id^="picker-btn-"]').forEach(btn => {
+        btn.classList.remove('border-blue-500', 'bg-blue-50');
+      });
+      document.getElementById(`picker-btn-${id}`).classList.add('border-blue-500', 'bg-blue-50');
+      selectedPickerId = id;
+    }
+
+    async function submitManualOrder() {
+      if (!selectedPickerId) {
+        showToast('Please select a picker');
+        return;
+      }
+
+      const invoiceNumber = document.getElementById('invoice-number').value.trim();
+      const partyName = document.getElementById('party-name').value.trim();
+      const itemCount = parseInt(document.getElementById('item-count').value);
+
+      if (!invoiceNumber || !partyName || !itemCount) {
+        showToast('Please fill all fields');
+        return;
+      }
+
+      const picker = getEmployees().find(e => e.__backendId === selectedPickerId);
+      if (picker) {
+        await createOrder(invoiceNumber, partyName, itemCount, picker);
+        document.getElementById('order-form').reset();
+        document.getElementById('manual-assign-panel').classList.add('hidden');
+        selectedPickerId = null;
+      }
+    }
+
+    // Render functions
+    function renderOrders() {
+      const container = document.getElementById('orders-list');
+      const orders = getOrders().filter(o => o.status !== 'delivered').sort((a, b) => 
+        new Date(b.created_at) - new Date(a.created_at)
+      );
+
+      if (orders.length === 0) {
+        container.innerHTML = '<p class="text-slate-500 text-center py-8">No active orders. Create one above!</p>';
+        return;
+      }
+
+      container.innerHTML = orders.map(order => {
+        const statusClass = `status-${order.status === 'delivery' ? 'delivery' : order.status}`;
+        const nextAction = getNextAction(order);
+        
+        return `
+          <div class="border border-slate-200 rounded-lg p-4 hover:shadow-md transition-all">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 mb-1">
+                  <span class="font-semibold text-slate-800">${order.invoice_number}</span>
+                  <span class="px-2 py-0.5 rounded-full text-xs font-medium ${statusClass}">${order.status.toUpperCase()}</span>
+                </div>
+                <p class="text-slate-600">${order.party_name}</p>
+                <p class="text-sm text-slate-500">${order.item_count} items</p>
+              </div>
+              <div class="text-right text-sm">
+                <p class="text-slate-500">Picker: <span class="font-medium text-slate-700">${order.picker_name || '-'}</span></p>
+                ${order.checker_name ? `<p class="text-slate-500">Checker: <span class="font-medium text-slate-700">${order.checker_name}</span></p>` : ''}
+                ${order.packer_name ? `<p class="text-slate-500">Packer: <span class="font-medium text-slate-700">${order.packer_name}</span></p>` : ''}
+              </div>
+              <div class="flex gap-2">
+                ${nextAction}
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function getNextAction(order) {
+      const btnClass = 'px-3 py-1.5 rounded-lg text-sm font-medium transition-all';
+      
+      switch(order.status) {
+        case 'picking':
+          return `<button onclick="advanceOrder('${order.__backendId}', 'checking')" class="${btnClass} bg-blue-600 text-white hover:bg-blue-700">✓ Picking Done</button>`;
+        case 'checking':
+          return `<button onclick="advanceOrder('${order.__backendId}', 'packing')" class="${btnClass} bg-indigo-600 text-white hover:bg-indigo-700">✓ Checking Done</button>`;
+        case 'packing':
+          return `<button onclick="advanceOrder('${order.__backendId}', 'delivery')" class="${btnClass} bg-purple-600 text-white hover:bg-purple-700">✓ Packing Done</button>`;
+        case 'delivery':
+          return `
+            <button onclick="advanceOrder('${order.__backendId}', 'delivered')" class="${btnClass} bg-green-600 text-white hover:bg-green-700">✓ Delivered</button>
+            <span class="px-2 py-1.5 bg-amber-100 text-amber-700 rounded-lg text-sm">🚚 Out for Delivery</span>
+          `;
+        default:
+          return '';
+      }
+    }
+
+    async function advanceOrder(orderId, newStatus) {
+      const order = getOrders().find(o => o.__backendId === orderId);
+      if (order) {
+        await updateOrderStatus(order, newStatus);
+      }
+    }
+
+    function renderEmployees() {
+      const container = document.getElementById('employees-list');
+      const employees = getEmployees();
+
+      if (employees.length === 0) {
+        container.innerHTML = '<p class="text-slate-500 text-center py-8">No employees added yet.</p>';
+        return;
+      }
+
+      const groupedByRole = {
+        picker: employees.filter(e => e.employee_role === 'picker'),
+        checker: employees.filter(e => e.employee_role === 'checker'),
+        delivery: employees.filter(e => e.employee_role === 'delivery')
+      };
+
+      container.innerHTML = Object.entries(groupedByRole).map(([role, emps]) => {
+        if (emps.length === 0) return '';
+        
+        const roleLabels = { picker: '📦 Pickers', checker: '✓ Checkers/Packers', delivery: '🚚 Delivery' };
+        
+        return `
+          <div class="mb-4">
+            <h3 class="font-semibold text-slate-700 mb-2">${roleLabels[role]}</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              ${emps.map(emp => `
+                <div class="border border-slate-200 rounded-lg p-3 ${!emp.employee_present ? 'bg-slate-50 opacity-70' : ''}">
+                  <div class="flex items-start justify-between">
+                    <div>
+                      <p class="font-medium text-slate-800">${emp.employee_name}</p>
+                      <p class="text-sm text-slate-500 capitalize">${emp.employee_level}</p>
+                    </div>
+                    <button onclick="confirmDeleteEmployee('${emp.__backendId}')" class="text-red-500 hover:text-red-700 text-sm">✕</button>
+                  </div>
+                  <div class="flex gap-2 mt-3">
+                    <button onclick="toggleStatus('${emp.__backendId}', 'employee_available')" 
+                      class="flex-1 px-2 py-1 rounded text-xs font-medium ${emp.employee_available ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
+                      ${emp.employee_available ? '✓ Available' : '✗ Busy'}
+                    </button>
+                    <button onclick="toggleStatus('${emp.__backendId}', 'employee_present')"
+                      class="flex-1 px-2 py-1 rounded text-xs font-medium ${emp.employee_present ? 'bg-blue-100 text-blue-700' : 'bg-slate-200 text-slate-600'}">
+                      ${emp.employee_present ? '✓ Present' : '✗ Absent'}
+                    </button>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function toggleStatus(empId, field) {
+      const employee = getEmployees().find(e => e.__backendId === empId);
+      if (employee) {
+        await toggleEmployeeStatus(employee, field);
+      }
+    }
+
+    function confirmDeleteEmployee(empId) {
+      const employee = getEmployees().find(e => e.__backendId === empId);
+      if (employee) {
+        showDeleteModal(
+          `Are you sure you want to remove ${employee.employee_name}?`,
+          () => deleteEmployee(employee)
+        );
+      }
+    }
+
+    function updateAnalytics() {
+      const orders = getOrders();
+      const employees = getEmployees();
+
+      // Stats
+      document.getElementById('stat-total').textContent = orders.length;
+      document.getElementById('stat-progress').textContent = orders.filter(o => o.status !== 'delivered').length;
+      document.getElementById('stat-delivered').textContent = orders.filter(o => o.status === 'delivered').length;
+      document.getElementById('stat-employees').textContent = employees.filter(e => e.employee_present && e.employee_available).length;
+
+      // Status chart
+      const statusCounts = {
+        picking: orders.filter(o => o.status === 'picking').length,
+        checking: orders.filter(o => o.status === 'checking').length,
+        packing: orders.filter(o => o.status === 'packing').length,
+        delivery: orders.filter(o => o.status === 'delivery').length,
+        delivered: orders.filter(o => o.status === 'delivered').length
+      };
+
+      const maxCount = Math.max(...Object.values(statusCounts), 1);
+      
+      document.getElementById('status-chart').innerHTML = Object.entries(statusCounts).map(([status, count]) => `
+        <div class="flex items-center gap-3">
+          <span class="w-20 text-sm text-slate-600 capitalize">${status}</span>
+          <div class="flex-1 h-6 bg-slate-100 rounded-full overflow-hidden">
+            <div class="h-full bg-gradient-to-r from-blue-500 to-blue-600 rounded-full transition-all" style="width: ${(count/maxCount)*100}%"></div>
+          </div>
+          <span class="w-8 text-sm font-medium text-slate-700">${count}</span>
+        </div>
+      `).join('');
+
+      // Top performers
+      const performerStats = {};
+      orders.filter(o => o.status === 'delivered').forEach(order => {
+        if (order.picker_name) {
+          performerStats[order.picker_name] = (performerStats[order.picker_name] || 0) + 1;
+        }
+      });
+
+      const topPerformers = Object.entries(performerStats)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5);
+
+      document.getElementById('performers-list').innerHTML = topPerformers.length > 0 
+        ? topPerformers.map(([name, count], i) => `
+            <div class="flex items-center gap-3 p-2 ${i === 0 ? 'bg-yellow-50 rounded-lg' : ''}">
+              <span class="text-lg">${i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '•'}</span>
+              <span class="flex-1 font-medium text-slate-700">${name}</span>
+              <span class="text-sm text-slate-500">${count} orders</span>
+            </div>
+          `).join('')
+        : '<p class="text-slate-500 text-center py-4">No completed orders yet</p>';
+
+      // Workload chart
+      const workloadByRole = {
+        picker: { total: 0, active: 0 },
+        checker: { total: 0, active: 0 },
+        delivery: { total: 0, active: 0 }
+      };
+
+      employees.forEach(e => {
+        if (workloadByRole[e.employee_role]) {
+          workloadByRole[e.employee_role].total++;
+          if (e.employee_present && e.employee_available) {
+            workloadByRole[e.employee_role].active++;
+          }
+        }
+      });
+
+      document.getElementById('workload-chart').innerHTML = Object.entries(workloadByRole).map(([role, data]) => `
+        <div class="bg-slate-50 rounded-lg p-4">
+          <p class="font-medium text-slate-700 capitalize mb-2">${role}s</p>
+          <div class="flex items-end gap-2">
+            <span class="text-3xl font-bold text-blue-600">${data.active}</span>
+            <span class="text-slate-500 mb-1">/ ${data.total} available</span>
+          </div>
+          <div class="mt-2 h-2 bg-slate-200 rounded-full overflow-hidden">
+            <div class="h-full bg-green-500 rounded-full" style="width: ${data.total ? (data.active/data.total)*100 : 0}%"></div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // Employee Metrics Dashboard
+    function getEmployeeMetrics(employee) {
+      const orders = getOrders();
+      let taskCount = 0;
+      let completedCount = 0;
+      let totalItems = 0;
+
+      orders.forEach(order => {
+        if (order.picker_id === employee.__backendId) {
+          taskCount++;
+          if (order.status !== 'picking') completedCount++;
+          totalItems += order.item_count;
+        } else if (order.checker_id === employee.__backendId) {
+          taskCount++;
+          if (order.status !== 'checking') completedCount++;
+        } else if (order.packer_id === employee.__backendId) {
+          taskCount++;
+          if (order.status !== 'packing') completedCount++;
+        } else if (order.delivery_status === 'delivered' && order.picker_id === employee.__backendId) {
+          // Counted in picker metrics
+        }
+      });
+
+      const successRate = taskCount > 0 ? Math.round((completedCount / taskCount) * 100) : 0;
+      const avgItems = taskCount > 0 ? (totalItems / taskCount).toFixed(1) : 0;
+
+      return { taskCount, completedCount, successRate, avgItems };
+    }
+
+    function getFilteredEmployees() {
+      const roleFilter = document.getElementById('metric-role-filter').value;
+      let employees = getEmployees();
+      
+      if (roleFilter) {
+        employees = employees.filter(e => e.employee_role === roleFilter);
+      }
+
+      return employees.sort((a, b) => {
+        const metricsA = getEmployeeMetrics(a);
+        const metricsB = getEmployeeMetrics(b);
+        return metricsB.completedCount - metricsA.completedCount;
+      });
+    }
+
+    function updateMetricsDashboard() {
+      const employees = getFilteredEmployees();
+
+      if (employees.length === 0) {
+        document.getElementById('employee-cards-container').innerHTML = 
+          '<p class="text-slate-500 col-span-3 text-center py-8">No employees matching filters</p>';
+        document.getElementById('comparison-chart').innerHTML = '';
+        document.getElementById('efficiency-list').innerHTML = '';
+        document.getElementById('workload-balance').innerHTML = '';
+        document.getElementById('metrics-table-body').innerHTML = '';
+        document.getElementById('trend-chart').innerHTML = '';
+        return;
+      }
+
+      renderEmployeeCards(employees);
+      renderComparisonChart(employees);
+      renderEfficiencyMetrics(employees);
+      renderWorkloadBalance(employees);
+      renderMetricsTable(employees);
+      renderTrendChart(employees);
+    }
+
+    function renderEmployeeCards(employees) {
+      const container = document.getElementById('employee-cards-container');
+      
+      container.innerHTML = employees.map(emp => {
+        const metrics = getEmployeeMetrics(emp);
+        const performanceColor = metrics.successRate >= 80 ? 'from-green-500' : 
+                                metrics.successRate >= 60 ? 'from-yellow-500' : 'from-red-500';
+        
+        return `
+          <div class="bg-white rounded-lg p-4 card-shadow border-l-4 border-blue-500">
+            <div class="flex items-start justify-between mb-3">
+              <div>
+                <h3 class="font-semibold text-slate-800">${emp.employee_name}</h3>
+                <p class="text-xs text-slate-500 capitalize">${emp.employee_role} • ${emp.employee_level}</p>
+              </div>
+              <div class="text-right">
+                <p class="text-2xl font-bold bg-gradient-to-r ${performanceColor} to-blue-500 bg-clip-text text-transparent">${metrics.successRate}%</p>
+                <p class="text-xs text-slate-500">Success Rate</p>
+              </div>
+            </div>
+            <div class="grid grid-cols-3 gap-2 text-center text-xs">
+              <div class="bg-blue-50 rounded p-2">
+                <p class="font-bold text-blue-600">${metrics.taskCount}</p>
+                <p class="text-slate-600">Tasks</p>
+              </div>
+              <div class="bg-green-50 rounded p-2">
+                <p class="font-bold text-green-600">${metrics.completedCount}</p>
+                <p class="text-slate-600">Done</p>
+              </div>
+              <div class="bg-purple-50 rounded p-2">
+                <p class="font-bold text-purple-600">${metrics.avgItems}</p>
+                <p class="text-slate-600">Avg Items</p>
+              </div>
+            </div>
+            <div class="mt-3 pt-3 border-t border-slate-200 flex justify-between text-xs">
+              <span class="${emp.employee_available ? 'text-green-600' : 'text-red-600'} font-medium">
+                ${emp.employee_available ? '✓ Available' : '✗ Busy'}
+              </span>
+              <span class="${emp.employee_present ? 'text-blue-600' : 'text-slate-400'} font-medium">
+                ${emp.employee_present ? '✓ Present' : '✗ Absent'}
+              </span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderComparisonChart(employees) {
+      const container = document.getElementById('comparison-chart');
+      const maxTasks = Math.max(...employees.map(e => getEmployeeMetrics(e).taskCount), 1);
+
+      container.innerHTML = employees.slice(0, 8).map(emp => {
+        const metrics = getEmployeeMetrics(emp);
+        const barWidth = (metrics.taskCount / maxTasks) * 100;
+        const colorClass = metrics.successRate >= 80 ? 'bg-green-500' : 
+                          metrics.successRate >= 60 ? 'bg-yellow-500' : 'bg-red-500';
+        
+        return `
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <span class="font-medium text-slate-700 text-sm truncate">${emp.employee_name}</span>
+              <span class="text-xs text-slate-500">${metrics.taskCount} tasks</span>
+            </div>
+            <div class="h-6 bg-slate-100 rounded-full overflow-hidden">
+              <div class="h-full ${colorClass} rounded-full transition-all flex items-center justify-end pr-2" style="width: ${barWidth}%">
+                <span class="text-xs font-bold text-white">${metrics.successRate}%</span>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderEfficiencyMetrics(employees) {
+      const container = document.getElementById('efficiency-list');
+      const efficiencies = employees.map(emp => {
+        const metrics = getEmployeeMetrics(emp);
+        const efficiency = (metrics.avgItems * metrics.successRate) / 100;
+        return { name: emp.employee_name, efficiency, metrics };
+      }).sort((a, b) => b.efficiency - a.efficiency);
+
+      container.innerHTML = efficiencies.slice(0, 6).map((item, idx) => `
+        <div class="flex items-center justify-between p-2 bg-slate-50 rounded">
+          <div class="flex items-center gap-2">
+            <span class="font-bold text-slate-400">#${idx + 1}</span>
+            <span class="font-medium text-slate-700">${item.name}</span>
+          </div>
+          <div class="text-right">
+            <p class="font-bold text-blue-600">${item.efficiency.toFixed(1)}</p>
+            <p class="text-xs text-slate-500">efficiency score</p>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderWorkloadBalance(employees) {
+      const container = document.getElementById('workload-balance');
+      const taskCounts = employees.map(emp => {
+        const metrics = getEmployeeMetrics(emp);
+        return { name: emp.employee_name, tasks: metrics.taskCount };
+      }).sort((a, b) => b.tasks - a.tasks);
+
+      const totalTasks = taskCounts.reduce((sum, item) => sum + item.tasks, 0);
+      const avgTasks = totalTasks / employees.length || 0;
+
+      container.innerHTML = taskCounts.slice(0, 6).map(item => {
+        const isOverloaded = item.tasks > avgTasks + 1;
+        const isUnderloaded = item.tasks < avgTasks - 1;
+        const balanceColor = isOverloaded ? 'text-red-600' : isUnderloaded ? 'text-blue-600' : 'text-green-600';
+        
+        return `
+          <div class="flex items-center justify-between p-2 bg-slate-50 rounded">
+            <span class="font-medium text-slate-700">${item.name}</span>
+            <div class="flex items-center gap-2">
+              <div class="h-2 w-16 bg-slate-200 rounded-full overflow-hidden">
+                <div class="h-full bg-gradient-to-r from-blue-500 to-blue-600" style="width: ${Math.min(item.tasks / (avgTasks * 1.5) * 100, 100)}%"></div>
+              </div>
+              <span class="font-bold ${balanceColor} w-12 text-right">${item.tasks} tasks</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderMetricsTable(employees) {
+      const tbody = document.getElementById('metrics-table-body');
+      
+      tbody.innerHTML = employees.map(emp => {
+        const metrics = getEmployeeMetrics(emp);
+        const statusColor = emp.employee_available && emp.employee_present ? 'bg-green-50' : 'bg-slate-50';
+        
+        return `
+          <tr class="${statusColor} border-b border-slate-200 hover:bg-slate-50">
+            <td class="px-4 py-3 font-medium text-slate-800">${emp.employee_name}</td>
+            <td class="px-4 py-3 text-slate-600 capitalize">${emp.employee_role}</td>
+            <td class="px-4 py-3 text-center font-semibold text-slate-700">${metrics.taskCount}</td>
+            <td class="px-4 py-3 text-center font-semibold text-green-600">${metrics.completedCount}</td>
+            <td class="px-4 py-3 text-center">
+              <span class="px-2 py-1 rounded-full text-xs font-bold ${
+                metrics.successRate >= 80 ? 'bg-green-100 text-green-700' :
+                metrics.successRate >= 60 ? 'bg-yellow-100 text-yellow-700' :
+                'bg-red-100 text-red-700'
+              }">${metrics.successRate}%</span>
+            </td>
+            <td class="px-4 py-3 text-center text-slate-700">${metrics.avgItems}</td>
+            <td class="px-4 py-3 text-center">
+              <span class="text-xs font-medium ${emp.employee_available ? 'text-green-600' : 'text-red-600'}">
+                ${emp.employee_available ? '✓ Available' : '✗ Busy'}
+              </span>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function renderTrendChart(employees) {
+      const container = document.getElementById('trend-chart');
+      const orders = getOrders();
+      const last7Days = [];
+      
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        const dateStr = date.toISOString().split('T')[0];
+        last7Days.push(dateStr);
+      }
+
+      const dailyStats = {};
+      last7Days.forEach(date => {
+        dailyStats[date] = { total: 0, completed: 0 };
+      });
+
+      orders.forEach(order => {
+        const dateStr = order.created_at.split('T')[0];
+        if (dailyStats[dateStr]) {
+          dailyStats[dateStr].total++;
+          if (order.status === 'delivered') {
+            dailyStats[dateStr].completed++;
+          }
+        }
+      });
+
+      const maxDaily = Math.max(...Object.values(dailyStats).map(d => d.total), 1);
+
+      container.innerHTML = last7Days.map(date => {
+        const day = new Date(date).toLocaleDateString('en-US', { weekday: 'short' });
+        const stats = dailyStats[date];
+        const completionRate = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0;
+        
+        return `
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-sm text-slate-600">${day}</span>
+              <span class="text-xs text-slate-500">${stats.completed}/${stats.total}</span>
+            </div>
+            <div class="flex gap-1">
+              <div class="flex-1 h-8 bg-slate-100 rounded-lg overflow-hidden">
+                <div class="h-full bg-gradient-to-r from-green-400 to-green-600" style="width: ${stats.total > 0 ? (stats.completed / stats.total) * 100 : 0}%"></div>
+              </div>
+              <div class="text-right w-12 text-xs font-bold text-slate-700 flex items-center justify-end">${completionRate}%</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function exportMetrics() {
+      const employees = getFilteredEmployees();
+      let csv = 'Employee Name,Role,Level,Total Tasks,Completed,Success Rate,Avg Items,Available,Present\n';
+      
+      employees.forEach(emp => {
+        const metrics = getEmployeeMetrics(emp);
+        csv += `"${emp.employee_name}","${emp.employee_role}","${emp.employee_level}",${metrics.taskCount},${metrics.completedCount},${metrics.successRate}%,${metrics.avgItems},"${emp.employee_available ? 'Yes' : 'No'}","${emp.employee_present ? 'Yes' : 'No'}"\n`;
+      });
+
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `employee-metrics-${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+      showToast('Metrics exported successfully!');
+    }
+
+    // Data handler - no longer needed but kept for compatibility
+    const dataHandler = {
+      onDataChanged(data) {
+        // Local storage version doesn't need this
+      }
+    };
+
+    // Initialize
+    async function init() {
+      loadData(); // Load from localStorage
+      renderOrders();
+      renderEmployees();
+      
+      if (window.elementSdk) {
+        window.elementSdk.init({
+          defaultConfig,
+          onConfigChange,
+          mapToCapabilities,
+          mapToEditPanelValues
+        });
+      }
+    }
+
+    init();
+    document.getElementById('order-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const invoiceNumber = document.getElementById('invoice-number').value.trim();
+      const partyName = document.getElementById('party-name').value.trim();
+      const itemCount = parseInt(document.getElementById('item-count').value);
+
+      if (!invoiceNumber || !partyName || !itemCount) {
+        showToast('Please fill all fields');
+        return;
+      }
+
+      const picker = findAvailablePicker(itemCount);
+      if (!picker) {
+        showToast('No suitable picker available! Add employees or try manual assignment.');
+        return;
+      }
+
+      await createOrder(invoiceNumber, partyName, itemCount, picker);
+      e.target.reset();
+    });
+
+    document.getElementById('employee-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const name = document.getElementById('emp-name').value.trim();
+      const role = document.getElementById('emp-role').value;
+      const level = document.getElementById('emp-level').value;
+
+      if (!name) {
+        showToast('Please enter employee name');
+        return;
+      }
+
+      await addEmployee(name, role, level);
+      e.target.reset();
+    });
+
+    // Element SDK setup
+    async function onConfigChange(config) {
+      document.getElementById('app-title').textContent = config.app_title || defaultConfig.app_title;
+      document.getElementById('company-name').textContent = config.company_name || defaultConfig.company_name;
+    }
+
+    function mapToCapabilities(config) {
+      return {
+        recolorables: [
+          {
+            get: () => config.primary_color || defaultConfig.primary_color,
+            set: (v) => { config.primary_color = v; window.elementSdk.setConfig({ primary_color: v }); }
+          },
+          {
+            get: () => config.secondary_color || defaultConfig.secondary_color,
+            set: (v) => { config.secondary_color = v; window.elementSdk.setConfig({ secondary_color: v }); }
+          },
+          {
+            get: () => config.text_color || defaultConfig.text_color,
+            set: (v) => { config.text_color = v; window.elementSdk.setConfig({ text_color: v }); }
+          },
+          {
+            get: () => config.accent_color || defaultConfig.accent_color,
+            set: (v) => { config.accent_color = v; window.elementSdk.setConfig({ accent_color: v }); }
+          },
+          {
+            get: () => config.surface_color || defaultConfig.surface_color,
+            set: (v) => { config.surface_color = v; window.elementSdk.setConfig({ surface_color: v }); }
+          }
+        ],
+        borderables: [],
+        fontEditable: undefined,
+        fontSizeable: undefined
+      };
+    }
+
+    function mapToEditPanelValues(config) {
+      return new Map([
+        ['app_title', config.app_title || defaultConfig.app_title],
+        ['company_name', config.company_name || defaultConfig.company_name]
+      ]);
+    }
+  </script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9d150950f0b53ae3',t:'MTc3MTY2NDI0OC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
